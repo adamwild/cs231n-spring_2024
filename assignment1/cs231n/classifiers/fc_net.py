@@ -55,7 +55,13 @@ class TwoLayerNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        mean = 0
+        std = weight_scale
+        self.params['W1'] = np.random.normal(mean, std, size=(input_dim, hidden_dim))
+        self.params['b1'] = np.zeros(hidden_dim)
+
+        self.params['W2'] = np.random.normal(mean, std, size=(hidden_dim, num_classes))
+        self.params['b2'] = np.zeros(num_classes)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -87,8 +93,11 @@ class TwoLayerNet(object):
         # class scores for X and storing them in the scores variable.              #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+ 
+        out1, cache1 = affine_forward(X, self.params['W1'], self.params['b1'])
+        out2, cache2 = relu_forward(out1)
+        scores, cache3 = affine_forward(out2, self.params['W2'], self.params['b2'])
 
-        pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -112,7 +121,19 @@ class TwoLayerNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        loss, dloss = softmax_loss(scores, y)
+        
+        l2_reg = np.sum(self.params['W1']**2) + np.sum(self.params['W2']**2)
+        loss += self.reg *0.5* l2_reg
+
+        dx, dW2, db2 = affine_backward(dloss, cache3)
+        dx = relu_backward(dx, cache2)
+        dx, dW1, db1 = affine_backward(dx, cache1)
+
+        dW1 += self.reg * self.params['W1']
+        dW2 += self.reg * self.params['W2']
+
+        grads = {key:val for (key, val) in [('W1', dW1), ('W2', dW2), ('b1', db1), ('b2', db2)]}
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

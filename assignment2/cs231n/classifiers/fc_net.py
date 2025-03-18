@@ -74,7 +74,21 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        layer_sizes = [input_dim, *hidden_dims, num_classes]
+        for layer_num in range(1, self.num_layers+1):
+          layer_num_str = str(layer_num)
+
+          curr_W, curr_b = 'W'+str(layer_num), 'b'+str(layer_num)
+          curr_size = layer_sizes[layer_num-1:layer_num+1]
+
+          # Weights initialized from a normal distribution
+          self.params[curr_W] = np.random.normal(0, weight_scale, size=curr_size)
+          self.params[curr_b] = np.zeros(layer_sizes[layer_num])
+
+          # initialization of betas and gammas for batchnorm
+          if self.normalization and layer_num != self.num_layers:
+            self.params['beta'+layer_num_str] = np.zeros((curr_size[1],))
+            self.params['gamma'+layer_num_str] = np.ones((curr_size[1],))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -148,7 +162,51 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        # {affine - [batch/layer norm] - relu - [dropout]} x (L - 1) - affine - softmax
+
+        # The activation vector is the vector as it goes through the forward pass
+        activation_vector = X
+
+        cache_data = {}
+
+        # Block of L-1 {affine - [batch/layer norm] - relu - [dropout]}
+        for layer_num in range(1, self.num_layers+1):
+          layer_num_str = str(layer_num)
+
+          curr_W = self.params['W'+layer_num_str]
+          curr_b = self.params['b'+layer_num_str]
+
+          # affine layer
+          activation_vector, cache_affine = affine_forward(activation_vector, curr_W, curr_b)
+          cache_data['affine'+layer_num_str] = cache_affine
+
+          # if we reached the last forward pass, we drop everything
+          if layer_num==self.num_layers:
+            break
+
+          # normalisation layer
+          # can be either None, 'batchnorm' or 'layernorm'
+          if self.normalization == "batchnorm":
+            beta, gamma = self.params['beta'+layer_num_str], self.params['gamma'+layer_num_str]
+            activation_vector, cache_bnorm = batchnorm_forward(activation_vector, gamma, beta, self.bn_params[layer_num-1])
+            cache_data['bnorm'+layer_num_str] = cache_bnorm
+
+          elif self.normalization == 'layernorm':
+            beta, gamma = self.params['beta'+layer_num_str], self.params['gamma'+layer_num_str]
+            activation_vector, cache_lnorm = layernorm_forward(activation_vector, gamma, beta, self.bn_params[layer_num-1])
+            cache_data['lnorm'+layer_num_str] = cache_lnorm
+
+          # ReLU layer
+          activation_vector, cache_relu = relu_forward(activation_vector)
+          cache_data['relu'+layer_num_str] = cache_relu
+
+          # dropout layer
+          if self.use_dropout:
+            activation_vector, cache_dropout = dropout_forward(activation_vector, self.dropout_param)
+            cache_data['dropout'+layer_num_str] = cache_dropout
+
+        scores = activation_vector
+
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -175,7 +233,48 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        loss, dloss = softmax_loss(scores, y)
+
+        loss += 0.5 * self.reg * np.sum([np.sum(W**2) for k, W in self.params.items() if 'W' in k])
+        curr_gradient = dloss
+
+        for layer_num in range(self.num_layers, 0, -1):
+          layer_num_str = str(layer_num)
+
+          # curr_W = self.params['W'+layer_num_str]
+          # curr_b = self.params['b'+layer_num_str]
+
+          
+          if layer_num != self.num_layers:
+            # Backward dropout
+            if self.use_dropout:
+              cache = cache_data['dropout'+layer_num_str]
+              curr_gradient = dropout_backward(curr_gradient, cache)
+
+
+            # Backward ReLU
+            cache = cache_data['relu'+layer_num_str]
+            curr_gradient = relu_backward(curr_gradient, cache)
+
+            # Backward Batchnorm
+            if self.normalization:
+              if self.normalization == "batchnorm":
+                cache = cache_data['bnorm'+layer_num_str]
+                curr_gradient, dgamma, dbeta = batchnorm_backward_alt(curr_gradient, cache)
+
+              elif self.normalization == 'layernorm':
+                cache = cache_data['lnorm'+layer_num_str]
+                curr_gradient, dgamma, dbeta = layernorm_backward(curr_gradient, cache)
+
+              grads['beta'+layer_num_str] = dbeta
+              grads['gamma'+layer_num_str] = dgamma
+
+          # Backward affine
+          cache = cache_data['affine'+layer_num_str]
+          curr_gradient, dw, db = affine_backward(curr_gradient, cache)
+
+          grads['W'+layer_num_str] = dw + self.reg * self.params['W'+layer_num_str]
+          grads['b'+layer_num_str] = db
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

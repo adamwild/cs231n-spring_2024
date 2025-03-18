@@ -27,8 +27,12 @@ def affine_forward(x, w, b):
     # will need to reshape the input into rows.                               #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    N = x.shape[0]
+    size_vector_x = np.prod(x.shape[1:])
+    x_rows = x.reshape(N,size_vector_x)
 
-    pass
+    out = np.dot(x_rows, w) + b
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -61,7 +65,18 @@ def affine_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # dx 
+    dx = np.dot(dout, w.T)
+    dx = dx.reshape(x.shape)
+
+    # dw
+    N = x.shape[0]
+    size_vector_x = np.prod(x.shape[1:])
+    x_rows = x.reshape(N,size_vector_x)
+    dw = np.dot(x_rows.T, dout)
+
+    # db
+    db = np.sum(dout, axis=0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -87,7 +102,8 @@ def relu_forward(x):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    out = x.copy()
+    out[x<0]=0
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -114,7 +130,9 @@ def relu_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dx = np.ones(x.shape)
+    dx[x<0]=0
+    dx = dx*dout
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -773,7 +791,12 @@ def svm_loss(x, y):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N = len(y)                                # number of samples
+    x_true = x[range(N), y][:, None]          # scores for true labels
+    margins = np.maximum(0, x - x_true + 1)   # margin for each score
+    loss = margins.sum() / N - 1
+    dx = (margins > 0).astype(float) / N
+    dx[range(N), y] -= dx.sum(axis=1)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -803,7 +826,23 @@ def softmax_loss(x, y):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    scores = x
+
+    # Normalization trick
+    max_f = np.max(scores, axis=1, keepdims=True)
+    shifted_scores = scores - max_f
+
+    # Applying softmax function
+    sum_rows = np.sum(np.exp(shifted_scores), axis=1, keepdims=True)
+    softmax_scores = np.exp(shifted_scores) / sum_rows
+
+    # Selecting the correct class softmax and summing
+    correct_class_probs = softmax_scores[np.arange(x.shape[0]), y]
+    loss = -np.sum(np.log(correct_class_probs)) / x.shape[0]
+
+    # Computing gradient
+    softmax_scores[range(x.shape[0]), y] -= 1
+    dx = softmax_scores / x.shape[0]
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

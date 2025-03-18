@@ -34,7 +34,35 @@ def softmax_loss_naive(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    scores = np.dot(X, W)
+    
+    for i in range(X.shape[0]):
+
+      f = scores[i]
+
+      # Normalization trick
+      log_C = -np.max(f)
+      f += log_C
+
+      # Correct label
+      c = y[i]
+
+      softmax_scores = np.exp(f) / np.sum(np.exp(f))
+
+      loss += -np.log(softmax_scores[y[i]])
+
+      for j in range(W.shape[1]):
+        if j == y[i]:
+          dW[:, j] += (softmax_scores[j] - 1) * X[i]
+        else:
+          dW[:, j] += softmax_scores[j] * X[i]
+
+
+    loss = loss/X.shape[0]
+    dW = dW/X.shape[0]
+
+    loss += reg*np.sum(W**2)
+    dW += 2*reg*W
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -59,7 +87,28 @@ def softmax_loss_vectorized(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    scores = np.dot(X, W)
+
+    # Normalization trick
+    max_f = np.max(scores, axis=1, keepdims=True)
+    shifted_scores = scores - max_f
+
+    # Applying softmax function
+    sum_rows = np.sum(np.exp(shifted_scores), axis=1, keepdims=True)
+    softmax_scores = np.exp(shifted_scores) / sum_rows
+
+    # Selecting the correct class softmax and summing
+    correct_class_probs = softmax_scores[np.arange(X.shape[0]), y]
+    loss = -np.sum(np.log(correct_class_probs)) / X.shape[0]
+
+    loss += reg * np.sum(W ** 2)
+
+    # Computing gradient
+    softmax_scores[range(X.shape[0]), y] -= 1
+    dW = np.dot(X.T, softmax_scores)
+    dW = dW / X.shape[0]
+    dW = dW + 2*reg*W
+    
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
